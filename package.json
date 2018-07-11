@@ -16,7 +16,7 @@
     "version": "npm run build",
     "postversion": "git push",
     "postPublish": "git push --tags",
-    "storybook": "start-storybook -p 9001 -c .storybook",
+    "storybook": "NODE_ENV=development start-storybook -p 9001 -c .storybook",
     "storybook:docs": "build-storybook -c .storybook -o docs",
     "coveralls": "NODE_ENV=spec nyc npm test && nyc report --reporter=text-lcov | coveralls",
     "test:coverage": "NODE_ENV=spec nyc mocha-webpack --exit --opts tests/mocha-webpack.opts",
@@ -47,11 +47,12 @@
   "license": "ISC",
   "devDependencies": {
     "@storybook/addon-options": "^3.4.5",
-    "@storybook/react": "^4.0.0-alpha.4",
+    "@storybook/react": "^4.0.0-alpha.13",
     "babel-core": "^6.26.3",
     "babel-loader": "^7.1.4",
     "babel-preset-env": "^1.6.1",
     "babel-preset-react": "^6.24.1",
+    "babel-preset-react-app": "^3.1.2",
     "chai": "^4.1.2",
     "coveralls": "^3.0.1",
     "css-loader": "^0.28.11",
@@ -84,6 +85,9 @@
       "env",
       "stage-0",
       "react"
+    ],
+    "plugins": [
+      "transform-runtime"
     ]
   },
   "nyc": {

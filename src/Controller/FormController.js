@@ -27,6 +27,8 @@ class FormController extends EventEmitter {
       notify: this.notify
     }
     this.fields = new Map();
+    // this.asyncValidations = new Map();
+    this.validationPromiseIDs = new Map();
     // Call initial hooks
     if( hooks.getApi ){
       hooks.getApi(this.api);
@@ -80,6 +82,33 @@ class FormController extends EventEmitter {
     this.emit('update', this.state);
   }
 
+  validateAsync = async ( fieldController, field ) => {
+    // Set up promise UID for this field on the form
+    const uid = Math.random();
+    validationPromiseIDs.set(field, uid)
+    // Call the validator
+    try {
+      // Grab the promise by executing the validation function
+      const promise = fieldController.asyncValidate( this.state.values );
+      // Wait on the promise
+      const error = await promise;
+      // If the promise ID doesn't match we we originally sent, it means a
+      // new promise has replaced it. Bail out!
+      if (validationPromiseIDs.get(field) !== uid) {
+        return;
+      }
+      // Set the error when the promise resolves
+      this.errors.set( field, error );
+    } catch (e) {
+      // TODO do something here!!!
+    }
+    // We changed so notify all other fields
+    this.notify(fieldController.config.notify);
+    // Emit changes
+    this.emit('change', this.state);
+    this.emit('field', field);
+  }
+
   setValue = ( field, value ) => {
     // Get the field controller to trigger any lifecycle methods
     const fieldController = this.fields.get( field );
@@ -90,6 +119,10 @@ class FormController extends EventEmitter {
       this.errors.set( field, fieldController.validate( this.state.values ));
       // We changed so notify all other fields
       this.notify(fieldController.config.notify);
+    }
+    // Validate if on async change validation prop was set
+    if( fieldController.config.validateAsyncOnChange ){
+      validateAsync( fieldController, field );
     }
     // Emit changes
     this.emit('change', this.state);
@@ -198,27 +231,26 @@ class FormController extends EventEmitter {
     }
   }
 
-  submitForm = (e) => {
+  submitForm = async (e) => {
     if( e && !this.config.dontPreventDefault ){
       e.preventDefault(e);
     }
+    const asyncValidators = [];
     this.fields.forEach(( fieldController ) => {
       // Get the fields name
       const field = fieldController.field;
       // Set touched
       this.touched.set( field, true );
       // Validate
-      //debugger
       this.errors.set( field, fieldController.validate( this.state.values ) );
+      // Build up list of async validatiors
+      if( fieldController.validateAsync ){
+        asyncValidators.push( () => this.validateAsync( fieldController, field ) );
+      }
     });
 
-
-    // // Only call form level validation if field level validations are valid
-    // // and the user gave us a validate function
-    // if( this.valid() && this.hooks.validate ){
-    //   this.errors.rebuild(this.hooks.validate( this.state.values ));
-    // }
-
+    // Execute all async validators
+    await Promise.all( asyncValidators.map( func => func() ) );
 
     this.emit('change', this.state);
     this.emit('update', this.state);
